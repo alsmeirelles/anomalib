@@ -1,4 +1,5 @@
 """Implements custom trainer for Anomalib."""
+from __future__ import annotations
 
 # Copyright (C) 2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
