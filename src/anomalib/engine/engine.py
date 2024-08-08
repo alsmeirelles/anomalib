@@ -389,7 +389,7 @@ class Engine:
             transform = next(dl.dataset.transform for dl in dataloaders if getattr(dl.dataset, "transform", None))
         elif ckpt_path is not None:
             # if a checkpoint path is provided, we can load the transform from the checkpoint
-            checkpoint = torch.load(ckpt_path, map_location=model.device)
+            checkpoint = torch.load(ckpt_path, map_location=model.device, weights_only=True)
             transform = checkpoint["transform"]
         elif model.transform is None:
             # if no transform is provided, we use the default transform from the model
