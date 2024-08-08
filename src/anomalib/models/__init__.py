@@ -1,4 +1,5 @@
 """Load Anomaly Model."""
+from __future__ import annotations
 
 # Copyright (C) 2022-2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
@@ -32,7 +33,7 @@ from .image import (
     Uflow,
     WinClip,
 )
-from .video import AiVad
+from .video import VidEfficientAd, AiVad
 
 
 class UnknownModelError(ModuleNotFoundError):
@@ -59,6 +60,7 @@ __all__ = [
     "Uflow",
     "AiVad",
     "WinClip",
+    "VidEfficientAd"
 ]
 
 logger = logging.getLogger(__name__)
@@ -83,7 +85,7 @@ def convert_snake_to_pascal_case(snake_case: str) -> str:
     return "".join(word.capitalize() for word in snake_case.split("_"))
 
 
-def get_available_models() -> set[str]:
+def get_available_models(base=AnomalyModule) -> set[str]:
     """Get set of available models.
 
     Returns:
@@ -100,7 +102,7 @@ def _get_model_class_by_name(name: str) -> type[AnomalyModule]:
     """Retrieves an anomaly model based on its name.
 
     Args:
-        name (str): The name of the model to retrieve. The name is case insensitive.
+        name (str): The name of the model to retrieve. The name is case-insensitive.
 
     Raises:
         UnknownModelError: If the model is not found.
@@ -108,15 +110,23 @@ def _get_model_class_by_name(name: str) -> type[AnomalyModule]:
     Returns:
         type[AnomalyModule]: Anomaly Model
     """
+
+    def all_subclasses(base=AnomalyModule) -> set[type[AnomalyModule]]:
+        return {cls for cls in
+                set(base.__subclasses__()).union(
+                    [s for c in base.__subclasses__() for s in all_subclasses(c)])}
+
     logger.info("Loading the model.")
     model_class: type[AnomalyModule] | None = None
 
     name = convert_snake_to_pascal_case(name).lower()
-    for model in AnomalyModule.__subclasses__():
+    av_models = all_subclasses()
+    for model in av_models:
         if name == model.__name__.lower():
             model_class = model
     if model_class is None:
-        logger.exception(f"Could not find the model {name}. Available models are {get_available_models()}")
+        logger.exception(f"Could not find the model {name}. "
+                         f"Available models are {[convert_snake_to_pascal_case(c.__name__) for c in av_models]}")
         raise UnknownModelError
 
     return model_class

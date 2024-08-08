@@ -12,7 +12,7 @@ import torch
 from pathlib import Path
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 
-from models.image.efficient_ad.lightning_model import EfficientAd
+from anomalib.models import EfficientAd
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,8 @@ class VidEfficientAd(EfficientAd):
         """
         del args, kwargs  # These variables are not used.
 
-        for b in range(batch["anomaly_maps"].shape[0]):
+        print(batch.keys())
+        for b in range(batch["image"].shape[0]):
             batch["anomaly_maps"][b] = self.model(batch["image"][b])["anomaly_map"]
 
         return batch
