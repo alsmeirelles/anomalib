@@ -1,7 +1,7 @@
-"""Tests for Torch and OpenVINO inferencers."""
-
-# Copyright (C) 2022-2024 Intel Corporation
+# Copyright (C) 2022-2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Tests for Torch and OpenVINO inferencers."""
 
 from collections.abc import Callable, Iterable
 from pathlib import Path
@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 import torch
 
-from anomalib import TaskType
 from anomalib.deploy import ExportType, OpenVINOInferencer, TorchInferencer
 from anomalib.engine import Engine
 from anomalib.models import Padim
@@ -48,26 +47,20 @@ class _MockImageLoader:
             yield self.image
 
 
-@pytest.mark.parametrize(
-    "task",
-    [
-        TaskType.CLASSIFICATION,
-        TaskType.DETECTION,
-        TaskType.SEGMENTATION,
-    ],
-)
-def test_torch_inference(task: TaskType, ckpt_path: Callable[[str], Path]) -> None:
+def test_torch_inference(ckpt_path: Callable[[str], Path], monkeypatch: pytest.MonkeyPatch) -> None:
     """Tests Torch inference.
 
     Model is not trained as this checks that the inferencers are working.
 
     Args:
-        task (TaskType): Task type
         ckpt_path: Callable[[str], Path]: Path to trained PADIM model checkpoint.
-        dataset_path (Path): Path to dummy dataset.
+        monkeypatch: pytest fixture for patching environment variables.
     """
+    # Set TRUST_REMOTE_CODE environment variable for the test
+    monkeypatch.setenv("TRUST_REMOTE_CODE", "1")
+
     model = Padim()
-    engine = Engine(task=task)
+    engine = Engine()
     export_root = ckpt_path("Padim").parent.parent
     engine.export(
         model=model,
@@ -87,15 +80,7 @@ def test_torch_inference(task: TaskType, ckpt_path: Callable[[str], Path]) -> No
             assert 0.0 <= prediction.pred_score <= 1.0  # confirm if predicted scores are normalized
 
 
-@pytest.mark.parametrize(
-    "task",
-    [
-        TaskType.CLASSIFICATION,
-        TaskType.DETECTION,
-        TaskType.SEGMENTATION,
-    ],
-)
-def test_openvino_inference(task: TaskType, ckpt_path: Callable[[str], Path]) -> None:
+def test_openvino_inference(ckpt_path: Callable[[str], Path]) -> None:
     """Tests OpenVINO inference.
 
     Model is not trained as this checks that the inferencers are working.
@@ -106,7 +91,7 @@ def test_openvino_inference(task: TaskType, ckpt_path: Callable[[str], Path]) ->
         dataset_path (Path): Path to dummy dataset.
     """
     model = Padim()
-    engine = Engine(task=task)
+    engine = Engine()
     export_dir = ckpt_path("Padim").parent.parent
     exported_xml_file_path = engine.export(
         model=model,
@@ -118,7 +103,6 @@ def test_openvino_inference(task: TaskType, ckpt_path: Callable[[str], Path]) ->
     # Test OpenVINO inferencer
     openvino_inferencer = OpenVINOInferencer(
         exported_xml_file_path,
-        exported_xml_file_path.parent / "metadata.json",
     )
     openvino_dataloader = _MockImageLoader([256, 256], total_count=1, as_numpy=True)
     for image in openvino_dataloader():

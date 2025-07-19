@@ -1,7 +1,7 @@
-"""Tests for installation utils."""
-
-# Copyright (C) 2023 Intel Corporation
+# Copyright (C) 2023-2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Tests for installation utils."""
 
 import os
 import tempfile
@@ -12,7 +12,6 @@ from pkg_resources import Requirement
 from pytest_mock import MockerFixture
 
 from anomalib.cli.utils.installation import (
-    add_hardware_suffix_to_torch,
     get_cuda_suffix,
     get_cuda_version,
     get_hardware_suffix,
@@ -27,7 +26,7 @@ from anomalib.cli.utils.installation import (
 def requirements_file() -> Path:
     """Create a temporary requirements file with some example requirements."""
     requirements = ["numpy==1.19.5", "opencv-python-headless>=4.5.1.48"]
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, encoding="utf-8") as f:
         f.write("\n".join(requirements))
         return Path(f.name)
 
@@ -67,7 +66,7 @@ def test_parse_requirements() -> None:
     requirements = [
         Requirement.parse("onnx>=1.8.1"),
     ]
-    with pytest.raises(ValueError, match="Could not find torch requirement."):
+    with pytest.raises(ValueError, match=r"Could not find torch requirement."):
         parse_requirements(requirements)
 
 
@@ -115,34 +114,11 @@ def test_get_hardware_suffix(mocker: MockerFixture) -> None:
     mocker.patch("anomalib.cli.utils.installation.get_cuda_version", return_value="12.1")
     assert get_hardware_suffix(with_available_torch_build=True, torch_version="2.0.1") == "cu118"
 
-    with pytest.raises(ValueError, match="``torch_version`` must be provided"):
+    with pytest.raises(ValueError, match=r"``torch_version`` must be provided"):
         get_hardware_suffix(with_available_torch_build=True)
 
     mocker.patch("anomalib.cli.utils.installation.get_cuda_version", return_value=None)
     assert get_hardware_suffix() == "cpu"
-
-
-def test_add_hardware_suffix_to_torch(mocker: MockerFixture) -> None:
-    """Test that add_hardware_suffix_to_torch returns the expected updated requirement."""
-    mocker.patch("anomalib.cli.utils.installation.get_hardware_suffix", return_value="cu121")
-    requirement = Requirement.parse("torch>=1.13.0, <=2.0.1")
-    updated_requirement = add_hardware_suffix_to_torch(requirement)
-    assert "torch" in updated_requirement
-    assert ">=1.13.0+cu121" in updated_requirement
-    assert "<=2.0.1+cu121" in updated_requirement
-
-    requirement = Requirement.parse("torch==2.0.1")
-    mocker.patch("anomalib.cli.utils.installation.get_hardware_suffix", return_value="cu118")
-    updated_requirement = add_hardware_suffix_to_torch(requirement, with_available_torch_build=True)
-    assert updated_requirement == "torch==2.0.1+cu118"
-
-    requirement = Requirement.parse("torch==2.0.1")
-    updated_requirement = add_hardware_suffix_to_torch(requirement, hardware_suffix="cu111")
-    assert updated_requirement == "torch==2.0.1+cu111"
-
-    requirement = Requirement.parse("torch>=1.13.0, <=2.0.1, !=1.14.0")
-    with pytest.raises(ValueError, match="Requirement version can be a single value or a range."):
-        add_hardware_suffix_to_torch(requirement)
 
 
 def test_get_torch_install_args(mocker: MockerFixture) -> None:
@@ -174,8 +150,8 @@ def test_get_torch_install_args(mocker: MockerFixture) -> None:
     expected_args = [
         "--extra-index-url",
         "https://download.pytorch.org/whl/cu111",
-        "torch==2.0.1+cu111",
-        "torchvision==0.15.2+cu111",
+        "torch==2.0.1",
+        "torchvision==0.15.2",
     ]
     install_args = get_torch_install_args(requirement)
     for arg in expected_args:
@@ -190,5 +166,5 @@ def test_get_torch_install_args(mocker: MockerFixture) -> None:
     assert install_args == ["torch==2.0.1"]
 
     mocker.patch("anomalib.cli.utils.installation.platform.system", return_value="Unknown")
-    with pytest.raises(RuntimeError, match="Unsupported OS: Unknown"):
+    with pytest.raises(RuntimeError, match=r"Unsupported OS: Unknown"):
         get_torch_install_args(requirement)
